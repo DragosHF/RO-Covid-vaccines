@@ -199,4 +199,4 @@ def chart_2(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8050)
