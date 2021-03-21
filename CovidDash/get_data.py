@@ -34,7 +34,7 @@ def download_files(url: str) -> list:
 def union_files(files: list) -> pd.DataFrame:
     df = pd.DataFrame()
     for file in files:
-        df_temp = pd.read_excel(file)
+        df_temp = pd.read_excel(file, engine='openpyxl')
         df = df.append(df_temp)
     return df
 
