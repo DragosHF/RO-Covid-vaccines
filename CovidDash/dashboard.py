@@ -32,6 +32,7 @@ vaccines = data['tip_vaccin'].sort_values().drop_duplicates().tolist()
 last_n_days = sorted(data['data_vaccinarii'].unique())[-AVG_TIME_WINDOW:]
 
 app = dash.Dash(__name__)
+server = app.server
 app.layout = html.Div(
     children=[
         html.H1(children='Vaccinare Romania'),
