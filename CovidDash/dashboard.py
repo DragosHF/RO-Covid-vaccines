@@ -131,13 +131,14 @@ def chart(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
         x=df_out_2['data_vaccinarii'],
         y=df_out_2['n_days_avg'],
         name=f'{AVG_TIME_WINDOW} Days Avg',
+        mode='markers+lines',
         line=dict(
             dash='dash',
             color='crimson',
             width=3,
         ),
         marker=dict(
-            size=10
+            size=8
         )
     )
     fig.add_scatter(
@@ -200,3 +201,4 @@ def chart_2(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=8050)
+    # app.run_server(debug=True)
