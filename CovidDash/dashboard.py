@@ -7,7 +7,7 @@ import pandas as pd
 from itertools import cycle
 import json
 import datetime as dt
-from app_config import TEMP_OUT_FILE, TEMP_OUT_JSON, COVID_URL
+from app_config import TEMP_OUT_FILE, TEMP_OUT_JSON, COVID_URL, GITHUB_URL
 
 AVG_TIME_WINDOW = 5
 
@@ -86,7 +86,12 @@ app.layout = html.Div(
             style={'width': '33%', 'display': 'inline-block', 'float': 'right'},
         ),
         dcc.Graph(id='graph'),
-        dcc.Graph(id='graph_avg')
+        dcc.Graph(id='graph_avg'),
+        html.Div(children=[
+            html.H3('Open source code'),
+            html.A('Github', href=GITHUB_URL, target='_blank')
+            ]
+        ),
     ]
 )
 
@@ -201,5 +206,5 @@ def chart_2(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
 
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050)
-    # app.run_server(debug=True)
+    # app.run_server(host='0.0.0.0', port=8050)
+    app.run_server(debug=True)
