@@ -50,9 +50,9 @@ def transform_vaccines(df: pd.DataFrame):
         'I-n/a': 'personal medical',
         'II-a': '65+, risc ridicat',
         'II-b': 'domenii cheie',
-        'III-a': 'populatia generala',
+        'III-a': 'populatia generala, risc ridicat',
         'III-c': 'populatia pediatrica',
-        'III-b': 'alte categorii'
+        'III-b': 'populatia generala'
     })
     df.drop(columns=['grupa_risc_1', 'grupa_risc_2', 'grupa_risc_int'], inplace=True)
     df['data_vaccinarii'] = pd.to_datetime(df['data_vaccinarii'], errors='coerce', format='%Y-%m-%d')
