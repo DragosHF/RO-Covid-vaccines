@@ -1,6 +1,6 @@
 import pandas as pd
 import requests
-from vaccines_columns import columns
+from columns_mappings import columns, categories
 import json
 from app_config import TEMP_IN, TEMP_OUT_FILE, TEMP_OUT_JSON, COVID_API_URL
 
@@ -46,14 +46,7 @@ def transform_vaccines(df: pd.DataFrame):
     df[['grupa_risc_1', 'grupa_risc_2']] = df['grupa_risc_detail'].str.extract(r'(I+)\s*-*([abc]){0,1}')
     df['grupa_risc_2'].fillna('n/a', inplace=True)
     df['grupa_risc_int'] = df['grupa_risc_1'] + '-' + df['grupa_risc_2']
-    df['grupa_risc'] = df['grupa_risc_int'] + ' ' + df['grupa_risc_int'].map({
-        'I-n/a': 'personal medical',
-        'II-a': '65+, risc ridicat',
-        'II-b': 'domenii cheie',
-        'III-a': 'populatia generala, risc ridicat',
-        'III-c': 'populatia pediatrica',
-        'III-b': 'populatia generala'
-    })
+    df['grupa_risc'] = df['grupa_risc_int'] + ' ' + df['grupa_risc_int'].map(categories)
     df.drop(columns=['grupa_risc_1', 'grupa_risc_2', 'grupa_risc_int'], inplace=True)
     df['data_vaccinarii'] = pd.to_datetime(df['data_vaccinarii'], errors='coerce', format='%Y-%m-%d')
     df.to_csv(TEMP_OUT_FILE, sep='\t', index=False)

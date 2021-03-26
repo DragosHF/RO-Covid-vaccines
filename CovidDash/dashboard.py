@@ -24,6 +24,9 @@ def get_last_modified(file):
     return max_timestamp_human
 
 
+app = dash.Dash(__name__)
+server = app.server
+
 last_modified = get_last_modified(TEMP_OUT_JSON)
 
 data = pd.read_csv(TEMP_OUT_FILE, sep='\t')
@@ -31,8 +34,7 @@ areas = data['judet'].sort_values().drop_duplicates().tolist()
 vaccines = data['tip_vaccin'].sort_values().drop_duplicates().tolist()
 last_n_days = sorted(data['data_vaccinarii'].unique())[-AVG_TIME_WINDOW:]
 
-app = dash.Dash(__name__)
-server = app.server
+
 app.layout = html.Div(
     children=[
         html.H1(children='Vaccinare Romania'),
@@ -51,7 +53,7 @@ app.layout = html.Div(
                 multi=True
             ),
         ],
-            style={'width': '33%', 'display': 'inline-block', 'float': 'left'}
+            style={'width': '25%', 'display': 'inline-block'}
         ),
         html.Div(children=[
           html.P('Tip Vaccin'),
@@ -65,7 +67,16 @@ app.layout = html.Div(
               clearable=False
           )
         ],
-            style={'width': '33%', 'display': 'inline-block', 'float': 'center'}
+            style={'width': '25%', 'display': 'inline-block'}
+        ),
+        html.Div(children=[
+            html.P('Centru'),
+            dcc.Dropdown(
+                id='center_filter',
+                clearable=True
+            )
+        ],
+            style={'width': '25%', 'display': 'inline-block'}
         ),
         html.Div(children=[
             html.P('Breakdown'),
@@ -83,7 +94,7 @@ app.layout = html.Div(
                 clearable=False
             )
         ],
-            style={'width': '33%', 'display': 'inline-block', 'float': 'right'},
+            style={'width': '25%', 'display': 'inline-block'},
         ),
         dcc.Graph(id='graph'),
         dcc.Graph(id='graph_avg'),
@@ -100,14 +111,18 @@ app.layout = html.Div(
     Output('graph', 'figure'),
     Input('breakdown', 'value'),
     Input('area_filter', 'value'),
-    Input('vaccine_filter', 'value')
+    Input('vaccine_filter', 'value'),
+    Input('center_filter', 'value')
 )
-def chart(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
+def chart(split_by: str, area_filter: list, vaccine_filter: list, center_filter) -> px.bar:
     df = data.copy(deep=True)
     if vaccine_filter:
         df = df[df['tip_vaccin'].isin(vaccine_filter)]
     if area_filter:
         df = df[df['judet'].isin(area_filter)]
+    if isinstance(center_filter, str):
+        # When filter is cleared, value is a list. We use the type to determine if there's any filter to be applied
+        df = df[df['nume_centru'] == center_filter]
     dim_values = sorted(df[split_by].unique())
     df_out = df.groupby(['data_vaccinarii', split_by])['doze_administrate_total'].sum().reset_index()
     df_out_2 = df.groupby(['data_vaccinarii'])['doze_administrate_total'].sum().reset_index()
@@ -165,46 +180,69 @@ def chart(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
     Output('graph_avg', 'figure'),
     Input('breakdown', 'value'),
     Input('area_filter', 'value'),
-    Input('vaccine_filter', 'value')
+    Input('vaccine_filter', 'value'),
+    Input('center_filter', 'value')
 )
-def chart_2(split_by: str, area_filter: list, vaccine_filter: list) -> px.bar:
+def chart_2(split_by: str, area_filter: list, vaccine_filter: list, center_filter) -> px.bar:
     df = data.copy(deep=True)
-    df['nume_centru'] = df['nume_centru'].str[:40] + '...'
     if vaccine_filter:
         df = df[df['tip_vaccin'].isin(vaccine_filter)]
     if area_filter:
         df = df[df['judet'].isin(area_filter)]
+    if isinstance(center_filter, str):
+        # When filter is cleared, value is a list. We use the type to determine if there's any filter to be applied
+        df = df[df['nume_centru'] == center_filter]
+
+    df['nume_centru'] = df['nume_centru'].str[:40] + '...'
     dim_values = sorted(df[split_by].unique())
     df = df[df['data_vaccinarii'].isin(last_n_days)]
-    df_out = df.groupby([split_by])['doze_administrate_total'].sum()/AVG_TIME_WINDOW
-    df_out = df_out.reset_index()
-    color_map = dict(zip(dim_values, cycle(px.colors.qualitative.Prism)))
-    df_out = df_out.sort_values(['doze_administrate_total'], ascending=False).head(15)
-    fig = px.bar(
-        df_out,
-        x='doze_administrate_total',
-        y=split_by,
-        orientation='h',
-        template='simple_white',
-        color=split_by,
-        text='doze_administrate_total',
-        color_discrete_map=color_map,
-        # color_discrete_sequence=px.colors.qualitative.Prism,
-        opacity=0.6,
-        labels={
-            'doze_administrate_total': f'Doze/zi',
-            'nume_centru': 'Centru (Top 15)',
-            'judet': 'Judet (Top 15)',
-            'grupa_risc': 'Grupa risc',
-            'tip_vaccin': 'Tip vaccin'
-        },
-        title=f'Numar mediu de doze zilnice in ultimele {AVG_TIME_WINDOW} zile'
-    )
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-    fig.update_layout(showlegend=False)
-    return fig
+    if not df.empty:
+        df_out = df.groupby([split_by])['doze_administrate_total'].sum()/AVG_TIME_WINDOW
+        df_out = df_out.reset_index()
+        color_map = dict(zip(dim_values, cycle(px.colors.qualitative.Prism)))
+        df_out = df_out.sort_values(['doze_administrate_total'], ascending=False).head(15)
+        fig = px.bar(
+            df_out,
+            x='doze_administrate_total',
+            y=split_by,
+            orientation='h',
+            template='simple_white',
+            color=split_by,
+            text='doze_administrate_total',
+            color_discrete_map=color_map,
+            # color_discrete_sequence=px.colors.qualitative.Prism,
+            opacity=0.6,
+            labels={
+                'doze_administrate_total': f'Doze/zi',
+                'nume_centru': 'Centru (Top 15)',
+                'judet': 'Judet (Top 15)',
+                'grupa_risc': 'Grupa risc',
+                'tip_vaccin': 'Tip vaccin'
+            },
+            title=f'Numar mediu de doze zilnice in ultimele {AVG_TIME_WINDOW} zile'
+        )
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig.update_layout(showlegend=False)
+        return fig
+    else:
+        return {}
+
+
+@app.callback(
+    Output('center_filter', 'options'),
+    Input('area_filter', 'value'),
+    Input('vaccine_filter', 'value')
+)
+def get_filtered_centers_options(area_filter: list, vaccine_filter: list):
+    df = data.copy(deep=True)
+    if vaccine_filter:
+        df = df[df['tip_vaccin'].isin(vaccine_filter)]
+    if area_filter:
+        df = df[df['judet'].isin(area_filter)]
+    filtered_centers = df['nume_centru'].sort_values().drop_duplicates().tolist()
+    return [{'label': i, 'value': i} for i in filtered_centers]
 
 
 if __name__ == '__main__':
-    # app.run_server(host='0.0.0.0', port=8050)
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8050)
+    # app.run_server(debug=True)

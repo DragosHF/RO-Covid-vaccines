@@ -9,3 +9,11 @@ columns = {
     'Doza 2': 'doze_administrate_doza_2',
     'Grupa de risc': 'grupa_risc_detail'
 }
+categories = {
+    'I-n/a': 'personal medical',
+    'II-a': '65+, risc ridicat',
+    'II-b': 'domenii cheie',
+    'III-a': 'populatia generala, risc ridicat',
+    'III-c': 'populatia pediatrica',
+    'III-b': 'populatia generala'
+}
