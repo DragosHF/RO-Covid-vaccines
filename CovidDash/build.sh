@@ -2,5 +2,5 @@
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-mkdir -p inputs outputs
+mkdir -p inputs outputs logs
 deactivate
