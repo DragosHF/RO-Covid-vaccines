@@ -2,9 +2,17 @@ import pandas as pd
 import requests
 from columns_mappings import columns, categories
 import json
-from app_config import COVID_API_URL, env_config
+from app_config import COVID_API_URL, env_config, LOG_FILE
 from s3_utils import S3Utils
 from io import BytesIO
+import logging
+
+logging.basicConfig(
+    format='%(levelname)s %(asctime)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    level=logging.INFO,
+    filename=LOG_FILE
+)
 
 env = env_config['env']
 inputs_path = env_config['inputs_path']
@@ -26,6 +34,7 @@ def get_vaccine_resources(url: str) -> dict:
                     last_modified=resource['last_modified']
                 )
             )
+    logging.info('Received resources')
     return data
 
 
@@ -36,9 +45,11 @@ def download_save_inputs(url: str):
         file = env_config['inputs_path'] / file_name
         with open(file, 'wb') as output:
             output.write(response.content)
+        logging.info(f'Saved {file_name} to local')
     else:
         file = env_config['inputs_path'] + file_name
         s3.file_obj_to_s3(file_obj=BytesIO(response.content), bucket=bucket, s3_file=file)
+        logging.info(f'Saved {file_name} to S3')
     return file
 
 
@@ -71,6 +82,7 @@ def export_outputs(df: pd.DataFrame, metadata: dict):
     export_format = dict(index=False, sep='\t')
     if env == 'local':
         df.to_csv(output_file, **export_format)
+        logging.info(f'Saved {output_file.name} to local')
         with open(output_metadata, 'w') as f:
             json.dump(metadata, f)
     else:
@@ -78,7 +90,7 @@ def export_outputs(df: pd.DataFrame, metadata: dict):
         df.to_csv(csv_buffer, **export_format)
         csv_buffer.seek(0)
         s3.file_obj_to_s3(file_obj=csv_buffer, bucket=bucket, s3_file=output_file)
-
+        logging.info(f'Saved {output_file} to S3')
         metadata_buffer = BytesIO()
         metadata_buffer.write(json.dumps(metadata).encode())
         metadata_buffer.seek(0)
@@ -106,6 +118,7 @@ if __name__ == '__main__':
         elif not env_config['s3_bucket']:
             raise ValueError('no S3_BUCKET defined')
         s3 = S3Utils(env_config['s3_role'])
+        logging.info('Get data - Successfully assumed role')
         bucket = env_config['s3_bucket']
     get_data()
 

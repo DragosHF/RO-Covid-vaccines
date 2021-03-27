@@ -7,9 +7,18 @@ import pandas as pd
 from itertools import cycle
 import json
 import datetime as dt
-from app_config import COVID_URL, GITHUB_URL, env_config
+from app_config import COVID_URL, GITHUB_URL, env_config, LOG_FILE
 from s3_utils import S3Utils
 from io import BytesIO
+import logging
+
+
+logging.basicConfig(
+    format='%(levelname)s %(asctime)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    level=logging.INFO,
+    filename=LOG_FILE
+)
 
 
 env = env_config['env']
@@ -23,13 +32,14 @@ if env == 'aws':
     elif not env_config['s3_bucket']:
         raise ValueError('no S3_BUCKET defined')
     s3 = S3Utils(env_config['s3_role'])
+    logging.info('Dashboard - Successfully assumed role')
     bucket = env_config['s3_bucket']
 
 
 AVG_TIME_WINDOW = 5
 
 
-def get_last_modified(file):
+def get_last_modified(file) -> str:
     # if ENVIRONMENT=local then use local file system for inputs. If aws, use S3
     if env == 'local':
         with open(file, 'r') as f:
@@ -46,7 +56,7 @@ def get_last_modified(file):
     return max_timestamp_human
 
 
-def load_data(file):
+def load_data(file) -> pd.DataFrame:
     # if ENVIRONMENT=local then use local file system for inputs. If aws, use S3
     if env == 'local':
         input_file = file
@@ -57,6 +67,7 @@ def load_data(file):
 
 last_modified = get_last_modified(metadata_file)
 data = load_data(data_file)
+logging.info(f'loaded {data.shape[0]} records from {last_modified}')
 
 # unique values to populate the filter
 areas = data['judet'].sort_values().drop_duplicates().tolist()
@@ -282,6 +293,7 @@ def get_filtered_centers_options(area_filter: list, vaccine_filter: list):
 
 
 if __name__ == '__main__':
+    logging.info('Starting server')
     if env == 'local':
         app.run_server(debug=True)
     else:

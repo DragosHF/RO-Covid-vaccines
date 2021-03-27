@@ -11,6 +11,7 @@ APP_ROOT = Path(__file__).parent.resolve()
 COVID_API_URL = 'https://data.gov.ro/api/3/action/package_show?id=transparenta-covid'
 COVID_URL = 'https://data.gov.ro/dataset/transparenta-covid'
 GITHUB_URL = 'https://github.com/DragosHF/RO-Covid-vaccines'
+LOG_FILE = APP_ROOT / 'logs' / 'covid_dash.log'
 
 
 def set_env():
