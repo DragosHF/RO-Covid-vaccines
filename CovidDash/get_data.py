@@ -76,6 +76,7 @@ def transform_vaccines(df: pd.DataFrame) -> pd.DataFrame:
     df['grupa_risc'] = df['grupa_risc_int'] + ' ' + df['grupa_risc_int'].map(categories)
     df.drop(columns=['grupa_risc_1', 'grupa_risc_2', 'grupa_risc_int'], inplace=True)
     df['data_vaccinarii'] = pd.to_datetime(df['data_vaccinarii'], errors='coerce', format='%Y-%m-%d')
+    logging.info('Data processed')
     return df
 
 
