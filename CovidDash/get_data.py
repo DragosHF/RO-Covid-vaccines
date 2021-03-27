@@ -2,7 +2,14 @@ import pandas as pd
 import requests
 from columns_mappings import columns, categories
 import json
-from app_config import TEMP_IN, TEMP_OUT_FILE, TEMP_OUT_JSON, COVID_API_URL
+from app_config import COVID_API_URL, env_config
+from s3_utils import S3Utils
+from io import BytesIO
+
+env = env_config['env']
+inputs_path = env_config['inputs_path']
+output_file = env_config['output_file']
+output_metadata = env_config['output_metadata']
 
 
 def get_vaccine_resources(url: str) -> dict:
@@ -22,24 +29,32 @@ def get_vaccine_resources(url: str) -> dict:
     return data
 
 
-def download_files(url: str) -> list:
+def download_save_inputs(url: str):
     response = requests.get(url)
     file_name = url.split('/')[-1]
-    file = TEMP_IN / file_name
-    with open(file, 'wb') as output:
-        output.write(response.content)
+    if env == 'local':
+        file = env_config['inputs_path'] / file_name
+        with open(file, 'wb') as output:
+            output.write(response.content)
+    else:
+        file = env_config['inputs_path'] + file_name
+        s3.file_obj_to_s3(file_obj=BytesIO(response.content), bucket=bucket, s3_file=file)
     return file
 
 
-def union_files(files: list) -> pd.DataFrame:
+def union_inputs(files: list) -> pd.DataFrame:
     df = pd.DataFrame()
     for file in files:
-        df_temp = pd.read_excel(file, engine='openpyxl')
+        if env == 'local':
+            input_file = file
+        else:
+            input_file = BytesIO(s3.s3_obj_to_bytes(file, bucket))
+        df_temp = pd.read_excel(input_file, engine='openpyxl')
         df = df.append(df_temp)
     return df
 
 
-def transform_vaccines(df: pd.DataFrame):
+def transform_vaccines(df: pd.DataFrame) -> pd.DataFrame:
     df.dropna(how='all', inplace=True)
     df = df[columns.keys()]
     df.rename(columns=columns, inplace=True)
@@ -49,23 +64,48 @@ def transform_vaccines(df: pd.DataFrame):
     df['grupa_risc'] = df['grupa_risc_int'] + ' ' + df['grupa_risc_int'].map(categories)
     df.drop(columns=['grupa_risc_1', 'grupa_risc_2', 'grupa_risc_int'], inplace=True)
     df['data_vaccinarii'] = pd.to_datetime(df['data_vaccinarii'], errors='coerce', format='%Y-%m-%d')
-    df.to_csv(TEMP_OUT_FILE, sep='\t', index=False)
+    return df
 
 
-def refresh_data():
-    vaccine_info = get_vaccine_resources(COVID_API_URL)
-    vaccine_resources = vaccine_info['resources']
-    temp_out_files = []
+def export_outputs(df: pd.DataFrame, metadata: dict):
+    export_format = dict(index=False, sep='\t')
+    if env == 'local':
+        df.to_csv(output_file, **export_format)
+        with open(output_metadata, 'w') as f:
+            json.dump(metadata, f)
+    else:
+        csv_buffer = BytesIO()
+        df.to_csv(csv_buffer, **export_format)
+        csv_buffer.seek(0)
+        s3.file_obj_to_s3(file_obj=csv_buffer, bucket=bucket, s3_file=output_file)
+
+        metadata_buffer = BytesIO()
+        metadata_buffer.write(json.dumps(metadata).encode())
+        metadata_buffer.seek(0)
+        s3.file_obj_to_s3(file_obj=metadata_buffer, bucket=bucket, s3_file=output_metadata)
+
+
+def get_data():
+    vaccine_data_info = get_vaccine_resources(COVID_API_URL)
+    vaccine_resources = vaccine_data_info['resources']
+    input_files = []
     for rsc in vaccine_resources:
         url = rsc['url']
-        temp_out_file = download_files(url)
-        temp_out_files.append(temp_out_file)
-    df = union_files(temp_out_files)
-    transform_vaccines(df)
-    with open(TEMP_OUT_JSON, 'w') as f:
-        json.dump(vaccine_info, f)
+        input_file = download_save_inputs(url)
+        input_files.append(input_file)
+    vaccine_data_raw = union_inputs(input_files)
+    vaccine_data_proc = transform_vaccines(vaccine_data_raw)
+    export_outputs(vaccine_data_proc, vaccine_data_info)
 
 
 if __name__ == '__main__':
-    refresh_data()
+    if env == 'aws':
+        # the code below can be changed if there is no need to assume role
+        if not env_config['s3_role']:
+            raise ValueError('no S3_ROLE defined')
+        elif not env_config['s3_bucket']:
+            raise ValueError('no S3_BUCKET defined')
+        s3 = S3Utils(env_config['s3_role'])
+        bucket = env_config['s3_bucket']
+    get_data()
 

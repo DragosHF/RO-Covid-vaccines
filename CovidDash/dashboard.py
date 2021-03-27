@@ -7,13 +7,35 @@ import pandas as pd
 from itertools import cycle
 import json
 import datetime as dt
-from app_config import TEMP_OUT_FILE, TEMP_OUT_JSON, COVID_URL, GITHUB_URL
+from app_config import COVID_URL, GITHUB_URL, env_config
+from s3_utils import S3Utils
+from io import BytesIO
+
+
+env = env_config['env']
+data_file = env_config['output_file']
+metadata_file = env_config['output_metadata']
+
+if env == 'aws':
+    # the code below can be changed if there is no need to assume role
+    if not env_config['s3_role']:
+        raise ValueError('no S3_ROLE defined')
+    elif not env_config['s3_bucket']:
+        raise ValueError('no S3_BUCKET defined')
+    s3 = S3Utils(env_config['s3_role'])
+    bucket = env_config['s3_bucket']
+
 
 AVG_TIME_WINDOW = 5
 
 
 def get_last_modified(file):
-    with open(file, 'r') as f:
+    # if ENVIRONMENT=local then use local file system for inputs. If aws, use S3
+    if env == 'local':
+        with open(file, 'r') as f:
+            info = json.load(f)
+    else:
+        f = BytesIO(s3.s3_obj_to_bytes(file, bucket))
         info = json.load(f)
     resources = info['resources']
     file_timestamps = []
@@ -24,16 +46,27 @@ def get_last_modified(file):
     return max_timestamp_human
 
 
-app = dash.Dash(__name__)
-server = app.server
+def load_data(file):
+    # if ENVIRONMENT=local then use local file system for inputs. If aws, use S3
+    if env == 'local':
+        input_file = file
+    else:
+        input_file = BytesIO(s3.s3_obj_to_bytes(file, bucket))
+    return pd.read_csv(input_file, sep='\t')
 
-last_modified = get_last_modified(TEMP_OUT_JSON)
 
-data = pd.read_csv(TEMP_OUT_FILE, sep='\t')
+last_modified = get_last_modified(metadata_file)
+data = load_data(data_file)
+
+# unique values to populate the filter
 areas = data['judet'].sort_values().drop_duplicates().tolist()
 vaccines = data['tip_vaccin'].sort_values().drop_duplicates().tolist()
+
+# the time scope for rolling average
 last_n_days = sorted(data['data_vaccinarii'].unique())[-AVG_TIME_WINDOW:]
 
+app = dash.Dash(__name__)
+server = app.server
 
 app.layout = html.Div(
     children=[
@@ -116,6 +149,7 @@ app.layout = html.Div(
 )
 def chart(split_by: str, area_filter: list, vaccine_filter: list, center_filter) -> px.bar:
     df = data.copy(deep=True)
+    # apply the area, vaccine type filters, if existing
     if vaccine_filter:
         df = df[df['tip_vaccin'].isin(vaccine_filter)]
     if area_filter:
@@ -123,12 +157,15 @@ def chart(split_by: str, area_filter: list, vaccine_filter: list, center_filter)
     if isinstance(center_filter, str):
         # When filter is cleared, value is a list. We use the type to determine if there's any filter to be applied
         df = df[df['nume_centru'] == center_filter]
+    # use the sorted dim values and cycle the color palette. Ensures consistent color legend across charts
     dim_values = sorted(df[split_by].unique())
+    color_map = dict(zip(dim_values, cycle(px.colors.qualitative.Prism)))
+    # aggregate, pass data to the chart
     df_out = df.groupby(['data_vaccinarii', split_by])['doze_administrate_total'].sum().reset_index()
     df_out_2 = df.groupby(['data_vaccinarii'])['doze_administrate_total'].sum().reset_index()
     df_out_2['n_days_avg'] = df_out_2.rolling(window=AVG_TIME_WINDOW)['doze_administrate_total'].mean()
     df_out_3 = df_out.groupby(['data_vaccinarii'])['doze_administrate_total'].sum().reset_index()
-    color_map = dict(zip(dim_values, cycle(px.colors.qualitative.Prism)))
+
     fig = px.bar(
         df_out,
         x='data_vaccinarii',
@@ -136,7 +173,6 @@ def chart(split_by: str, area_filter: list, vaccine_filter: list, center_filter)
         color=split_by,
         template='simple_white',
         color_discrete_map=color_map,
-        # color_discrete_sequence=px.colors.qualitative.Prism,
         opacity=0.6,
         labels={
             'data_vaccinarii': 'Data vaccinarii',
@@ -185,6 +221,7 @@ def chart(split_by: str, area_filter: list, vaccine_filter: list, center_filter)
 )
 def chart_2(split_by: str, area_filter: list, vaccine_filter: list, center_filter) -> px.bar:
     df = data.copy(deep=True)
+    # apply the area, vaccine type filters, if existing
     if vaccine_filter:
         df = df[df['tip_vaccin'].isin(vaccine_filter)]
     if area_filter:
@@ -192,11 +229,11 @@ def chart_2(split_by: str, area_filter: list, vaccine_filter: list, center_filte
     if isinstance(center_filter, str):
         # When filter is cleared, value is a list. We use the type to determine if there's any filter to be applied
         df = df[df['nume_centru'] == center_filter]
-
+    # truncate the center names to keep the layout clean
     df['nume_centru'] = df['nume_centru'].str[:40] + '...'
     dim_values = sorted(df[split_by].unique())
     df = df[df['data_vaccinarii'].isin(last_n_days)]
-    if not df.empty:
+    if not df.empty:  # depending on the filters combination, the df can be empty
         df_out = df.groupby([split_by])['doze_administrate_total'].sum()/AVG_TIME_WINDOW
         df_out = df_out.reset_index()
         color_map = dict(zip(dim_values, cycle(px.colors.qualitative.Prism)))
@@ -225,9 +262,10 @@ def chart_2(split_by: str, area_filter: list, vaccine_filter: list, center_filte
         fig.update_layout(showlegend=False)
         return fig
     else:
-        return {}
+        return {}  # return blank chart if df is empty
 
 
+# callback to filter the Centers based on the other filter values (dependent filtering)
 @app.callback(
     Output('center_filter', 'options'),
     Input('area_filter', 'value'),
@@ -244,5 +282,7 @@ def get_filtered_centers_options(area_filter: list, vaccine_filter: list):
 
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050)
-    # app.run_server(debug=True)
+    if env == 'local':
+        app.run_server(debug=True)
+    else:
+        app.run_server(host='0.0.0.0', port=8050)
