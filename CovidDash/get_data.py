@@ -113,7 +113,7 @@ def get_data():
 
 
 if __name__ == '__main__':
-    if env == 'aws':
+    if env == 's3':
         # the code below can be changed if there is no need to assume role
         if not env_config['s3_role']:
             raise ValueError('no S3_ROLE defined')

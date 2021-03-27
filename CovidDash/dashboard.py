@@ -25,7 +25,7 @@ env = env_config['env']
 data_file = env_config['output_file']
 metadata_file = env_config['output_metadata']
 
-if env == 'aws':
+if env == 's3':
     # the code below can be changed if there is no need to assume role
     if not env_config['s3_role']:
         raise ValueError('no S3_ROLE defined')
@@ -40,7 +40,7 @@ AVG_TIME_WINDOW = 5
 
 
 def get_last_modified(file) -> str:
-    # if ENVIRONMENT=local then use local file system for inputs. If aws, use S3
+    # if ENVIRONMENT=local then use local file system for inputs. If s3, use S3
     if env == 'local':
         with open(file, 'r') as f:
             info = json.load(f)
@@ -57,7 +57,7 @@ def get_last_modified(file) -> str:
 
 
 def load_data(file) -> pd.DataFrame:
-    # if ENVIRONMENT=local then use local file system for inputs. If aws, use S3
+    # if ENVIRONMENT=local then use local file system for inputs. If s3, use S3
     if env == 'local':
         input_file = file
     else:
