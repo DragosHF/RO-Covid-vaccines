@@ -14,7 +14,7 @@ logging.basicConfig(
     filename=LOG_FILE
 )
 
-env = env_config['env']
+storage = env_config['storage']
 inputs_path = env_config['inputs_path']
 output_file = env_config['output_file']
 output_metadata = env_config['output_metadata']
@@ -41,28 +41,28 @@ def get_vaccine_resources(url: str) -> dict:
 def download_save_inputs(url: str):
     response = requests.get(url)
     file_name = url.split('/')[-1]
-    if env == 'local':
+    if storage == 'local':
         file = env_config['inputs_path'] / file_name
         with open(file, 'wb') as output:
             output.write(response.content)
-        logging.info(f'Saved {file_name} to {env}')
+        logging.info(f'Saved {file_name} to {storage}')
     else:
         file = env_config['inputs_path'] + file_name
         s3.file_obj_to_s3(file_obj=BytesIO(response.content), bucket=bucket, s3_file=file)
-        logging.info(f'Saved {file_name} to {env}')
+        logging.info(f'Saved {file_name} to {storage}')
     return file
 
 
 def union_inputs(files: list) -> pd.DataFrame:
     df = pd.DataFrame()
     for file in files:
-        if env == 'local':
+        if storage == 'local':
             input_file = file
         else:
             input_file = BytesIO(s3.s3_obj_to_bytes(file, bucket))
         df_temp = pd.read_excel(input_file, engine='openpyxl')
         df = df.append(df_temp)
-    logging.info(f'Loaded {df.shape[0]} records from {env}')
+    logging.info(f'Loaded {df.shape[0]} records from {storage}')
     return df
 
 
@@ -82,9 +82,9 @@ def transform_vaccines(df: pd.DataFrame) -> pd.DataFrame:
 
 def export_outputs(df: pd.DataFrame, metadata: dict):
     export_format = dict(index=False, sep='\t')
-    if env == 'local':
+    if storage == 'local':
         df.to_csv(output_file, **export_format)
-        logging.info(f'Saved {output_file.name} to {env}')
+        logging.info(f'Saved {output_file.name} to {storage}')
         with open(output_metadata, 'w') as f:
             json.dump(metadata, f)
     else:
@@ -92,7 +92,7 @@ def export_outputs(df: pd.DataFrame, metadata: dict):
         df.to_csv(csv_buffer, **export_format)
         csv_buffer.seek(0)
         s3.file_obj_to_s3(file_obj=csv_buffer, bucket=bucket, s3_file=output_file)
-        logging.info(f'Saved {output_file} to {env}')
+        logging.info(f'Saved {output_file} to {storage}')
         metadata_buffer = BytesIO()
         metadata_buffer.write(json.dumps(metadata).encode())
         metadata_buffer.seek(0)
@@ -113,7 +113,7 @@ def get_data():
 
 
 if __name__ == '__main__':
-    if env == 's3':
+    if storage == 's3':
         # the code below can be changed if there is no need to assume role
         if not env_config['s3_role']:
             raise ValueError('no S3_ROLE defined')

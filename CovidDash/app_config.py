@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-# ENVIRONMENT can be 'local' or 's3'
+# STORAGE can be 'local' or 's3'
 # when 'local' the code will use the local temp folder structure to store and retrieve the data
 # when 's3' the code will use S3 to store and retrieve the data
 # 's3' requires the following env variables: S3_ROLE, S3_BUCKET,  AWS_SECRET_ACCESS_KEY,  AWS_ACCESS_KEY_ID
@@ -15,14 +15,14 @@ LOG_FILE = APP_ROOT / 'logs' / 'covid_dash.log'
 
 
 def set_env():
-    env = os.getenv('ENVIRONMENT')
-    if env not in ['local', 's3']:
-        raise ValueError('ENVIRONMENT must be one of: local, s3')
+    storage = os.getenv('STORAGE')
+    if storage not in ['local', 's3']:
+        raise ValueError('STORAGE must be one of: local, s3')
     else:
         output_file_name = 'vaccines_covid.txt'
         output_metadata_name = 'vaccines_covid_metadata.json'
-        config = {'env': env}
-        if env == 'local':
+        config = {'storage': storage}
+        if storage == 'local':
             # if local, return Path objects
             inputs_path = APP_ROOT / 'inputs'
             outputs_path = APP_ROOT / 'outputs'

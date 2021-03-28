@@ -12,11 +12,11 @@ from s3_utils import S3Utils
 from io import BytesIO
 
 
-env = env_config['env']
+storage = env_config['storage']
 data_file = env_config['output_file']
 metadata_file = env_config['output_metadata']
 
-if env == 's3':
+if storage == 's3':
     # the code below can be changed if there is no need to assume role
     if not env_config['s3_role']:
         raise ValueError('no S3_ROLE defined')
@@ -31,7 +31,7 @@ AVG_TIME_WINDOW = 5
 
 def get_last_modified(file) -> str:
     # if ENVIRONMENT=local then use local file system for inputs. If s3, use S3
-    if env == 'local':
+    if storage == 'local':
         with open(file, 'r') as f:
             info = json.load(f)
     else:
@@ -48,14 +48,15 @@ def get_last_modified(file) -> str:
 
 def load_data(file) -> pd.DataFrame:
     # if ENVIRONMENT=local then use local file system for inputs. If s3, use S3
-    if env == 'local':
+    if storage == 'local':
         input_file = file
     else:
         input_file = BytesIO(s3.s3_obj_to_bytes(file, bucket))
     return pd.read_csv(input_file, sep='\t')
 
 
-last_modified = get_last_modified(metadata_file)
+# last_modified = get_last_modified(metadata_file)
+last_modified = dt.datetime.strftime(dt.datetime.now(), '%d %b %Y %H:%M:%S')  # for debugging
 data = load_data(data_file)
 
 # unique values to populate the filter
@@ -282,7 +283,5 @@ def get_filtered_centers_options(area_filter: list, vaccine_filter: list):
 
 
 if __name__ == '__main__':
-    if env == 'local':
-        app.run_server(debug=True)
-    else:
-        app.run_server(host='0.0.0.0', port=8050)
+    # app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8050)
