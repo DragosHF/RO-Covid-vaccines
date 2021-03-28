@@ -1,7 +1,7 @@
 import sys
 import os
 # set the environment variables to be used by the wsgi app
-os.environ['ENVIRONMENT'] = ''
+os.environ['STORAGE'] = ''
 os.environ['S3_ROLE'] = ''
 os.environ['S3_BUCKET'] = ''
 os.environ['AWS_ACCESS_KEY_ID'] = ''
