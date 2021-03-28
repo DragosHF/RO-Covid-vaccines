@@ -30,7 +30,7 @@ AVG_TIME_WINDOW = 5
 
 
 def get_last_modified(file) -> str:
-    # if ENVIRONMENT=local then use local file system for inputs. If s3, use S3
+    # if STORAGE=local then use local file system for inputs. If s3, use S3
     if storage == 'local':
         with open(file, 'r') as f:
             info = json.load(f)
@@ -47,7 +47,7 @@ def get_last_modified(file) -> str:
 
 
 def load_data(file) -> pd.DataFrame:
-    # if ENVIRONMENT=local then use local file system for inputs. If s3, use S3
+    # if STORAGE=local then use local file system for inputs. If s3, use S3
     if storage == 'local':
         input_file = file
     else:
@@ -55,8 +55,8 @@ def load_data(file) -> pd.DataFrame:
     return pd.read_csv(input_file, sep='\t')
 
 
-# last_modified = get_last_modified(metadata_file)
-last_modified = dt.datetime.strftime(dt.datetime.now(), '%d %b %Y %H:%M:%S')  # for debugging
+last_modified = get_last_modified(metadata_file)
+# last_modified = dt.datetime.strftime(dt.datetime.now(), '%d %b %Y %H:%M:%S')  # for debugging
 data = load_data(data_file)
 
 # unique values to populate the filter
