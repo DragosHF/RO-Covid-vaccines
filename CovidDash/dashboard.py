@@ -7,18 +7,9 @@ import pandas as pd
 from itertools import cycle
 import json
 import datetime as dt
-from app_config import COVID_URL, GITHUB_URL, env_config, LOG_FILE
+from app_config import COVID_URL, GITHUB_URL, env_config
 from s3_utils import S3Utils
 from io import BytesIO
-import logging
-
-
-logging.basicConfig(
-    format='%(levelname)s %(asctime)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    level=logging.INFO,
-    filename=LOG_FILE
-)
 
 
 env = env_config['env']
@@ -32,7 +23,6 @@ if env == 's3':
     elif not env_config['s3_bucket']:
         raise ValueError('no S3_BUCKET defined')
     s3 = S3Utils(env_config['s3_role'])
-    logging.info('Dashboard - Successfully assumed role')
     bucket = env_config['s3_bucket']
 
 
@@ -67,7 +57,6 @@ def load_data(file) -> pd.DataFrame:
 
 last_modified = get_last_modified(metadata_file)
 data = load_data(data_file)
-logging.info(f'loaded {data.shape[0]} records from {last_modified}')
 
 # unique values to populate the filter
 areas = data['judet'].sort_values().drop_duplicates().tolist()
@@ -293,7 +282,6 @@ def get_filtered_centers_options(area_filter: list, vaccine_filter: list):
 
 
 if __name__ == '__main__':
-    logging.info('Starting server')
     if env == 'local':
         app.run_server(debug=True)
     else:
