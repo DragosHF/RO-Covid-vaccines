@@ -27,4 +27,4 @@ execute using local storage
 execute using S3 storage: edit the `run.sh` file, then
 `bash run.sh s3`
 
-change the app.run_server() in dashboard.py depending on the environment
+change the `app.run_server()` in `dashboard.py` depending on the environment
