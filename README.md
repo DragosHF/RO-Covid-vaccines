@@ -10,7 +10,13 @@ data source: https://data.gov.ro/dataset/transparenta-covid
 
 usage:
 
-The code can use either local or S3 storage. For S3 the prerequisites are: S3 bucket, access keys, permissions to S3 granted directly or through an "assume role" policy. Edit the get_data.py and dashboard.py if the permissions are granted directly.
+The code can use either local or S3 storage. 
+
+For S3 the prerequisites are: 
+
+S3 bucket, access keys, permissions to S3 granted directly or through an "assume role" policy. 
+
+Edit the get_data.py and dashboard.py if the permissions are granted directly.
 
 build the project (creates venv and folder structure: inputs, outputs, logs)
 `bash build.sh`
