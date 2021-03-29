@@ -16,7 +16,7 @@ For S3 the prerequisites are:
 
 S3 bucket, access keys, permissions to S3 granted directly or through an "assume role" policy. 
 
-Edit the get_data.py and dashboard.py if the permissions are granted directly.
+Edit the `get_data.py` and `dashboard.py` if the permissions are granted directly.
 
 build the project (creates venv and folder structure: inputs, outputs, logs)
 `bash build.sh`
